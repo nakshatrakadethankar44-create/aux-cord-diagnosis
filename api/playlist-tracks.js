@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   try {
     const plRes = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=50&fields=items(track(id,name,popularity,artists(name)))`,
+      `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=50&fields=items(item(id,name,popularity,artists(name)))`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const plData = await plRes.json();
@@ -38,16 +38,16 @@ export default async function handler(req, res) {
       return;
     }
 
-    const items = (plData.items || []).filter(i => i.track);
+    const items = (plData.items || []).filter(i => i.item);
     const tracks = items.map(i => ({
-      name: i.track.name,
-      artist: i.track.artists.map(a => a.name).join(", "),
-      popularity: i.track.popularity,
+      name: i.item.name,
+      artist: (i.item.artists || []).map(a => a.name).join(", "),
+      popularity: i.item.popularity,
     }));
 
     let audioFeatures = null;
     try {
-      const ids = items.map(i => i.track.id).filter(Boolean).join(",");
+      const ids = items.map(i => i.item.id).filter(Boolean).join(",");
       const afRes = await fetch(`https://api.spotify.com/v1/audio-features?ids=${ids}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
