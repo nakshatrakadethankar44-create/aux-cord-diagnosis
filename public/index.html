@@ -41,7 +41,22 @@
   .dots { animation: dotFade 1.2s steps(4) infinite; }
   @keyframes dotFade { 0% { opacity:0.2; } 50% { opacity:1; } 100% { opacity:0.2; } }
 
-  .scroll-wrap { position: relative; }
+  .scroll-wrap { position: relative; display: none; }
+  .scroll-wrap.show { display: block; }
+
+  .playlist-input-wrap { display:flex; flex-direction:column; align-items:center; margin-bottom: 20px; }
+  .playlist-input {
+    font-family: 'Space Mono', monospace; font-size: 12px; color:#2b3a5c;
+    background: #fffaf1; border: 2px solid #2b3a5c; border-radius: 100px;
+    padding: 10px 18px; width: 300px; max-width: 80vw; margin-bottom: 12px;
+    text-align: center;
+  }
+  .playlist-input::placeholder { color: #8a7a5a; }
+  .playlist-input:focus { outline: none; border-color: #c96a8a; }
+  .input-hint {
+    font-family: 'Space Mono', monospace; font-size: 9px; color:#8a7a5a;
+    margin-top: -4px; text-align: center;
+  }
 
   .scroll {
     width: 440px; max-width: 92vw;
@@ -153,7 +168,12 @@
 </div>
 
 <button class="btn" id="connectBtn">🎧 Connect Spotify</button>
-<button class="btn" id="diagnoseBtn" style="display:none;">▶ Run Diagnosis</button>
+
+<div class="playlist-input-wrap" id="playlistInputWrap" style="display:none;">
+  <input type="text" id="playlistInput" class="playlist-input" placeholder="Paste a playlist link (optional)">
+  <button class="btn" id="diagnoseBtn">▶ Run Diagnosis</button>
+  <div class="input-hint">Leave blank to use your top tracks instead</div>
+</div>
 
 <div class="loader" id="loader">
   <svg width="60" height="60" viewBox="0 0 100 100" fill="none">
@@ -164,7 +184,7 @@
   <div class="loader-text">diagnosing<span class="dots">...</span></div>
 </div>
 
-<div class="scroll-wrap">
+<div class="scroll-wrap" id="scrollWrap">
   <div class="scroll" id="card">
     <div class="xoxo">XOXO</div>
     <div class="sparkle">✦✦</div>
@@ -312,6 +332,8 @@
   const titleEl = document.getElementById('titleText');
   const card = document.getElementById('card');
   const connectBtn = document.getElementById('connectBtn');
+  const playlistInputWrap = document.getElementById('playlistInputWrap');
+  const playlistInput = document.getElementById('playlistInput');
   const btn = document.getElementById('diagnoseBtn');
   const stamp = document.getElementById('stampBtn');
   const symptomsGrid = document.getElementById('symptomsGrid');
@@ -384,24 +406,36 @@
   }
 
   async function runDiagnosis() {
+    const scrollWrap = document.getElementById('scrollWrap');
     document.querySelectorAll('.reveal').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('#symptomsGrid .cell').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.vital-fill').forEach(el => el.style.width = '0%');
 
     const loader = document.getElementById('loader');
-    card.style.opacity = '0.3';
     loader.classList.add('show');
     btn.disabled = true;
 
     try {
-      const topRes = await fetch('/api/top-tracks');
+      const playlistUrl = playlistInput.value.trim();
+      const endpoint = playlistUrl
+        ? `/api/playlist-tracks?playlist=${encodeURIComponent(playlistUrl)}`
+        : '/api/top-tracks';
+
+      const topRes = await fetch(endpoint);
       const topData = await topRes.json();
 
       if (!topData.authenticated) {
         loader.classList.remove('show');
-        card.style.opacity = '1';
-        btn.style.display = 'none';
+        btn.disabled = false;
+        playlistInputWrap.style.display = 'none';
         connectBtn.style.display = 'inline-block';
+        return;
+      }
+
+      if (topData.error) {
+        alert('Could not read that playlist — check the link and that it\'s not private. ' + JSON.stringify(topData.error));
+        loader.classList.remove('show');
+        btn.disabled = false;
         return;
       }
 
@@ -415,7 +449,6 @@
       if (diagData.error) {
         alert('Diagnosis failed: ' + (diagData.error.message || diagData.error));
         loader.classList.remove('show');
-        card.style.opacity = '1';
         btn.disabled = false;
         return;
       }
@@ -424,13 +457,13 @@
       populateContent(diagData);
 
       loader.classList.remove('show');
-      card.style.opacity = '1';
       btn.disabled = false;
+      scrollWrap.classList.add('show');
+      card.style.opacity = '1';
       typeTitle(diagData.playlistNickname || 'Your Listening, Diagnosed', revealSequence);
       btn.textContent = '↻ Re-run Diagnosis';
     } catch (err) {
       loader.classList.remove('show');
-      card.style.opacity = '1';
       btn.disabled = false;
       alert('Something went wrong: ' + err.message);
     }
@@ -439,14 +472,14 @@
   connectBtn.addEventListener('click', () => { window.location.href = '/api/login'; });
   btn.addEventListener('click', runDiagnosis);
 
-  // On load, check auth silently — if already connected, show the run button
+  // On load, check auth silently — if already connected, show the input + run button
   (async () => {
     try {
       const topRes = await fetch('/api/top-tracks');
       const topData = await topRes.json();
       if (topData.authenticated) {
         connectBtn.style.display = 'none';
-        btn.style.display = 'inline-block';
+        playlistInputWrap.style.display = 'flex';
       }
     } catch {}
   })();
