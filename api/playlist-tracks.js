@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
   try {
     const plRes = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&fields=items(track(id,name,popularity,artists(name)))`,
+      `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=50&fields=items(track(id,name,popularity,artists(name)))`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const plData = await plRes.json();
