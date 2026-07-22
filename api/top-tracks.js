@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const topData = await topRes.json();
 
     if (!topRes.ok) {
-      res.status(topRes.status).json({ authenticated: false, error: topData });
+      res.status(topRes.status).json({ authenticated: true, error: topData });
       return;
     }
 
